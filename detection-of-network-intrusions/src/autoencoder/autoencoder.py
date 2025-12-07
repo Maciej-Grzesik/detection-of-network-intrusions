@@ -57,3 +57,17 @@ class Autoencoder(nn.Module):
             predictions = (err >= threshold).astype(int)
             
             return predictions, err
+        
+    @staticmethod
+    def load_model_with_weights(input_dim: int, latent_dim: int, weights_path: str, device: str = None):
+        device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        
+        model = Autoencoder(input_dim=input_dim, latent_dim=latent_dim).to(device)
+        
+        state_dict = torch.load(weights_path, map_location=device)
+        
+        model.load_state_dict(state_dict)
+        
+        model.eval()
+        
+        return model

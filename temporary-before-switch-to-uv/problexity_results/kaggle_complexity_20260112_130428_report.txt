@@ -1,0 +1,75 @@
+============================================================
+COMPLEXITY ANALYSIS REPORT
+============================================================
+
+Timestamp: 20260112_130428
+
+Dataset Information:
+  Total samples: 4,217,625
+  Sampled samples: 10,000
+  Sample size: 10,000
+
+Full Class Distribution:
+  Class 0.0: 3,659,000 (86.75%)
+  Class 1.0: 50,392 (1.19%)
+  Class 2.0: 507,845 (12.04%)
+  Class 3.0: 388 (0.01%)
+
+Sampled Class Distribution:
+  Class 0.0: 8,627 (86.27%)
+  Class 1.0: 119 (1.19%)
+  Class 2.0: 1,204 (12.04%)
+  Class 3.0: 50 (0.50%)
+
+Complexity Score:
+  Average: 0.177163
+  Class 0: 0.225733
+  Class 1: 0.013592
+  Class 2: 0.000000
+  Class 3: 0.064579
+  Class 4: 0.000587
+  Class 5: 0.025795
+  Class 6: 0.022679
+  Class 7: 0.022679
+  Class 8: 0.001334
+  Class 9: 0.494183
+  Class 10: 0.000994
+  Class 11: 0.030828
+  Class 12: 0.006170
+  Class 13: 0.351608
+  Class 14: 0.573616
+  Class 15: 0.122762
+  Class 16: 0.458870
+  Class 17: 0.037709
+  Class 18: 0.001300
+  Class 19: 0.034483
+  Class 20: 0.625735
+  Class 21: 0.782353
+
+Complexity Metrics:
+  f1: f1
+  f1v: f1v
+  f2: f2
+  f3: f3
+  f4: f4
+  l1: l1
+  l2: l2
+  l3: l3
+  n1: n1
+  n2: n2
+  n3: n3
+  n4: n4
+  t1: t1
+  lsc: lsc
+  density: density
+  clsCoef: clsCoef
+  hubs: hubs
+  t2: t2
+  t3: t3
+  t4: t4
+  c1: c1
+  c2: c2
+
+Computation Time: 2075.63s (34.59 minutes)
+
+============================================================

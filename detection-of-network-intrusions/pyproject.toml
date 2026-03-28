@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.3.5",
+    "problexity>=0.5.11",
     "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
     "torch>=2.9.1",
+    "tqdm>=4.67.3",
 ]
 
 [dependency-groups]

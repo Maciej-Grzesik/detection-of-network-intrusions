@@ -34,7 +34,7 @@ def run_experiment(dataset: str, train_label: str | None, device: str, row_limit
         loader_kwargs = {
             "train_path": "data/dataset2/train_net.csv",
             "test_path": "data/dataset2/test_net.csv",
-            "train_label": train_label or "None",
+            "train_label": train_label,
             "normal_value": 0.0,
             "train_size": 0.6,
             "val_size": 0.2,
@@ -52,20 +52,15 @@ def run_experiment(dataset: str, train_label: str | None, device: str, row_limit
     print(f"Running experiment: dataset={dataset}, train_label={train_label}")
     X_train, X_val, X_test, y_val, y_test, mean, std = loader(**loader_kwargs)
 
-    print(
-        f"Shapes ---- Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}"
-    )
+    print(f"Shapes ---- Train: {X_train.shape}, Val: {X_val.shape}, Test: {None if X_test is None else X_test.shape}")
 
-    train_loader = DataLoader(
-        AutoencoderDataset(X_train), batch_size=256, shuffle=True
-    )
-    val_loader = DataLoader(
-        AutoencoderDataset(X_val), batch_size=256, shuffle=False
-    )
-    test_dataset = TensorDataset(
-        torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long()
-    )
-    test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=0)
+    train_loader = DataLoader(AutoencoderDataset(X_train), batch_size=256, shuffle=True)
+    val_loader = DataLoader(AutoencoderDataset(X_val), batch_size=256, shuffle=False)
+    if X_test is None or y_test is None:
+        test_loader = None
+    else:
+        test_dataset = TensorDataset(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).long())
+        test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=0)
 
     input_dim = X_train.shape[1]
     model = Autoencoder(input_dim=input_dim, latent_dim=32)
@@ -88,28 +83,20 @@ def run_experiment(dataset: str, train_label: str | None, device: str, row_limit
     torch.save(model.state_dict(), model_path)
     print(f"Model saved to {model_path}")
 
-    print("Evaluating model")
-    results = evaluate_autoencoder(
-        model=model,
-        train_loader=train_loader,
-        test_loader=test_loader,
-        device=device,
-    )
-
-    safe_label = (train_label or "default").replace(" ", "_")
-    results_dir = Path("results") / dataset / safe_label
-    plot_results(
-        results,
-        output_dir=str(results_dir),
-        name=f"v1_model_{dataset}_{safe_label}",
-    )
-
-    print("Results:")
-    print(f"  Threshold: {results['threshold']:.6f}")
-    print(f"  Precision: {results['precision']:.4f}")
-    print(f"  Recall: {results['recall']:.4f}")
-    print(f"  F1 Score: {results['f1']:.4f}")
-    print(f"  AUC: {results['auc']:.4f}")
+    if test_loader is not None:
+        print("Evaluating model")
+        results = evaluate_autoencoder(model=model, train_loader=train_loader, test_loader=test_loader, device=device)
+        safe_label = (train_label or "default").replace(" ", "_")
+        results_dir = Path("results") / dataset / safe_label
+        plot_results(results, output_dir=str(results_dir), name=f"v1_model_{dataset}_{safe_label}")
+        print("Results:")
+        print(f"  Threshold: {results['threshold']:.6f}")
+        print(f"  Precision: {results['precision']:.4f}")
+        print(f"  Recall: {results['recall']:.4f}")
+        print(f"  F1 Score: {results['f1']:.4f}")
+        print(f"  AUC: {results['auc']:.4f}")
+    else:
+        print("No test set available for this configuration; skipping evaluation.")
 
 
 def main():

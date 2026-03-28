@@ -8,7 +8,6 @@ from sklearn.preprocessing import OneHotEncoder
 import scipy.sparse as sp
 from sklearn.impute import SimpleImputer
 
-# Column names for KDD Cup 99 dataset
 KDD_COLUMNS = [
     "duration",
     "protocol_type",
@@ -170,7 +169,7 @@ def load_kddcup(
 
     target_group = _label_to_group(train_label)
     y_groups = np.array([_label_to_group(lab) for lab in y_raw])
-    y = (y_groups != target_group).astype(np.float32)  # anomalies = 1
+    y = (y_groups != target_group).astype(np.float32)
 
     X_cat = X_raw[CATEGORICAL_COLUMNS].astype(str).to_numpy(dtype=object)
     num_cols = [c for c in X_raw.columns if c not in CATEGORICAL_COLUMNS]
@@ -212,7 +211,7 @@ def load_kddcup(
         num_t = num_imputer.transform(num_part)
         num_scaled = (num_t - mean) / std
         cat_t = cat_imputer.transform(cat_part)
-        cat_enc = encoder.transform(cat_t)  # sparse matrix
+        cat_enc = encoder.transform(cat_t)
         num_sparse = sp.csr_matrix(num_scaled)
         combined = sp.hstack([num_sparse, cat_enc], format="csr")
         return combined.toarray()

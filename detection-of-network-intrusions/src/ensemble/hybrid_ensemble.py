@@ -30,7 +30,7 @@ class HybridIntrusionEnsemble(BaseEstimator, ClassifierMixin):
         
     def fit(self, X, y=None):
 
-        X = check_array(X, accept_sparse=False, force_all_finite=True)
+        X = check_array(X, accept_sparse=False, ensure_all_finite=True)
         
         # Compute reconstruction errors on calibration set
         ae_errors = self._get_ae_reconstruction_errors(X)
@@ -47,7 +47,7 @@ class HybridIntrusionEnsemble(BaseEstimator, ClassifierMixin):
     
     def predict_proba(self, X):
         check_is_fitted(self, ['ae_min_error_', 'ae_max_error_'])
-        X = check_array(X, accept_sparse=False, force_all_finite=True)
+        X = check_array(X, accept_sparse=False, ensure_all_finite=True)
         
         # 1. Get Random Forest probabilities
         rf_proba = self.rf_model.predict_proba(X)

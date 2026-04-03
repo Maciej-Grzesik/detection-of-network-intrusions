@@ -29,17 +29,24 @@ class HybridIntrusionEnsemble(BaseEstimator, ClassifierMixin):
         self.classes_ = np.array([0, 1])
         
     def fit(self, X, y=None):
-
         X = check_array(X, accept_sparse=False, ensure_all_finite=True)
         
+        # If labels are provided, only calibrate on normal traffic (class 0)
+        if y is not None:
+            y = np.asarray(y)
+            normal_mask = (y == 0)
+            X_calib = X[normal_mask]
+        else:
+            # Assume user pre-filtered the data
+            X_calib = X
+            
         # Compute reconstruction errors on calibration set
-        ae_errors = self._get_ae_reconstruction_errors(X)
+        ae_errors = self._get_ae_reconstruction_errors(X_calib)
         
-        # Use percentiles for robust normalization (avoid outlier influence)
+        # Use percentiles for robust normalization
         self.ae_min_error_ = float(np.percentile(ae_errors, 1))
         self.ae_max_error_ = float(np.percentile(ae_errors, 99))
         
-        # Handle edge case where all errors are identical
         if self.ae_max_error_ == self.ae_min_error_:
             self.ae_max_error_ = self.ae_min_error_ + 1e-8
             

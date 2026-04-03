@@ -79,7 +79,7 @@ DATASET_CONFIG = {
         'attack_types': {
             0: 'Normal',
             1: 'Port_Scanning',
-            2: 'DoS',
+            2: 'Denial_of_Service',
             3: 'Malware'
         }
     },
@@ -128,6 +128,10 @@ SAMPLING_CONFIG = {
     'Netflow': {'sample_size': 200000, 'random_state': 42},  # Sample 200k
     'Kitsune': {'sample_size': 200000, 'random_state': 42}  # Sample 200k from 2M
 }
+
+# DATASET FILTER: Set which datasets to run. Options: 'KDD', 'Netflow', 'Kitsune'
+# Set to None to run all, or specify a list like ['Kitsune'] or ['KDD', 'Kitsune']
+DATASETS_TO_RUN = ['Netflow']  # Change this to run different datasets
 
 
 # ============================================================================
@@ -276,12 +280,19 @@ def _load_netflow_data(config: Dict) -> Optional[Tuple[np.ndarray, np.ndarray, D
     # Combine train and test
     df = pd.concat([df_train, df_test], axis=0, ignore_index=True)
     
-    # Extract label from ANOMALY column and features
-    label_col = 'ANOMALY'
-    y = df[label_col].values
+    # Extract label from ALERT column (contains attack types)
+    # Map attack types to numeric labels: NaN->0 (Normal), Port Scanning->1, Denial of Service->2, Malware->3
+    alert_mapping = {
+        'Port Scanning': 1,
+        'Denial of Service': 2,
+        'Malware': 3
+    }
+    # Map ALERT column to numeric labels, treating NaN as 0 (Normal)
+    y_alert = df['ALERT'].map(alert_mapping).fillna(0).astype(int)
+    y = y_alert.values
     
-    # Drop non-numeric columns: FLOW_ID, ID, and the label column
-    cols_to_drop = ['FLOW_ID', 'ID', label_col]
+    # Drop non-numeric columns: FLOW_ID, ID, ANOMALY, and ALERT
+    cols_to_drop = ['FLOW_ID', 'ID', 'ANOMALY', 'ALERT']
     X_df = df.drop(columns=cols_to_drop)
     
     # Convert categorical columns to numeric using LabelEncoder
@@ -301,10 +312,6 @@ def _load_netflow_data(config: Dict) -> Optional[Tuple[np.ndarray, np.ndarray, D
     X = np.column_stack(X_numeric).astype(np.float32)
     
     class_mapping = config['attack_types']
-    valid_classes = list(class_mapping.keys())
-    mask = np.isin(y, valid_classes)
-    X = X[mask]
-    y = y[mask]
     
     print(f"  Shape: {X.shape}, Classes: {np.unique(y)}")
     return X, y, class_mapping
@@ -356,7 +363,8 @@ def run_evaluation_protocol(device: str) -> List[Dict]:
     # ========================================================================
     # 1. DATASET LOOP
     # ========================================================================
-    for dataset_name in ['KDD', 'Netflow', 'Kitsune']:
+    datasets_to_process = DATASETS_TO_RUN if DATASETS_TO_RUN else ['KDD', 'Netflow', 'Kitsune']
+    for dataset_name in datasets_to_process:
         print(f"\n{'='*80}")
         print(f"DATASET: {dataset_name}")
         print(f"{'='*80}")
@@ -432,31 +440,42 @@ def run_evaluation_protocol(device: str) -> List[Dict]:
                     print("    ⚠ Insufficient normal samples for AE. Skipping fold...")
                     continue
                 
+                # Dynamically adjust batch size to avoid BatchNorm errors
+                # BatchNorm requires batch size > 1, so use min(samples, configured_batch_size)
+                actual_batch_size = min(len(X_ae_train), max(2, AE_HYPERPARAMS['batch_size']))
+                
                 X_ae_train_tensor = torch.from_numpy(X_ae_train).float()
                 ae_train_dataset = TensorDataset(X_ae_train_tensor, X_ae_train_tensor)
-                ae_train_loader = DataLoader(ae_train_dataset, batch_size=AE_HYPERPARAMS['batch_size'], shuffle=True)
+                ae_train_loader = DataLoader(ae_train_dataset, batch_size=actual_batch_size, shuffle=True)
                 
                 # Use the normal traffic from the validation split for AE early stopping
                 val_normal_mask = (y_val == 0)
                 X_ae_val = X_val[val_normal_mask]
                 X_ae_val_tensor = torch.from_numpy(X_ae_val).float()
                 ae_val_dataset = TensorDataset(X_ae_val_tensor, X_ae_val_tensor)
-                ae_val_loader = DataLoader(ae_val_dataset, batch_size=AE_HYPERPARAMS['batch_size'], shuffle=False)
+                # For validation, use same batch size or smaller
+                val_batch_size = min(len(X_ae_val), max(2, actual_batch_size)) if len(X_ae_val) > 0 else actual_batch_size
+                ae_val_loader = DataLoader(ae_val_dataset, batch_size=val_batch_size, shuffle=False)
                 
                 input_dim = X_train.shape[1]
                 ae_model = Autoencoder(input_dim=input_dim, latent_dim=AE_HYPERPARAMS['latent_dim'])
                 
-                ae_model = train_autoencoder(
-                    model=ae_model, train_loader=ae_train_loader, val_loader=ae_val_loader,
-                    epochs=AE_HYPERPARAMS['epochs'], lr=AE_HYPERPARAMS['lr'], device=device, patience=AE_HYPERPARAMS['patience']
-                )
+                try:
+                    ae_model = train_autoencoder(
+                        model=ae_model, train_loader=ae_train_loader, val_loader=ae_val_loader,
+                        epochs=AE_HYPERPARAMS['epochs'], lr=AE_HYPERPARAMS['lr'], device=device, patience=AE_HYPERPARAMS['patience']
+                    )
+                except Exception as e:
+                    print(f"\n    ⚠ Error training AE for {source_attack_name}: {str(e)[:80]}")
+                    print(f"       Samples: {len(X_ae_train)} normal (train), {len(X_ae_val) if val_normal_mask.any() else 0} (val)")
+                    continue
                 
                 # --- Tuning Phase ---
                 print("    ✓ Tuning...", end=" ")
                 tuning_result = grid_search_weights(
                     rf_model=rf_model, ae_model=ae_model, X_train=X_train, y_train=y_train,
                     X_val=X_val, y_val=y_val, rf_weights=np.linspace(0.0, 1.0, 6), # Note: Uses the 20% validation split
-                    thresholds=[0.4, 0.5, 0.6], metric='f1', device=device, verbose=False
+                    thresholds=[0.1, 0.2, 0.3, 0.4, 0.5], metric='f1', device=device, verbose=False
                 )
                 best_config = tuning_result['best_config']
                 

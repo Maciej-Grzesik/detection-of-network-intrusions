@@ -118,20 +118,20 @@ AE_HYPERPARAMS = {
 
 CV_CONFIG = {
     'n_splits': 2,
-    'n_repeats': 2,  # Reduced repeats for faster execution
+    'n_repeats': 5, 
     'random_state': 42
 }
 
 # Data sampling config - sample large datasets for faster execution
 SAMPLING_CONFIG = {
-    'KDD': {'sample_size': 500000, 'random_state': 42},  # Sample 500k from 4.9M
-    'Netflow': {'sample_size': 200000, 'random_state': 42},  # Sample 200k
-    'Kitsune': {'sample_size': 200000, 'random_state': 42}  # Sample 200k from 2M
+    'KDD': None, 
+    'Netflow': None,
+    'Kitsune': None
 }
 
 # DATASET FILTER: Set which datasets to run. Options: 'KDD', 'Netflow', 'Kitsune'
 # Set to None to run all, or specify a list like ['Kitsune'] or ['KDD', 'Kitsune']
-DATASETS_TO_RUN = ['Netflow']  # Change this to run different datasets
+DATASETS_TO_RUN = None  # Change this to run different datasets
 
 
 # ============================================================================
